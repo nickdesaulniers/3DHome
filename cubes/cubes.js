@@ -1,5 +1,5 @@
 var canvas = document.getElementById('canvas');
-var shaders = ['textured.vert', 'textured.frag'];
+var shaders = ['textured2.vert', 'textured.frag'];
 var images = [];
 WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, _) {
   if (errors.length) return console.error.apply(console, errors);
@@ -22,8 +22,20 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
     transformMatrix(0.5, -0.5)
   ];
   gl.uniform4f(uniforms.uColor, 1.0, 0.0, 0.0, 1.0);
-  var d = degPerPeriod(10);
+  var d = degPerPeriod(10); // 10s to rotate 360 deg
   var previous = performance.now();
+
+  var view = mat4.create();
+  var eye = vec3.fromValues(0, 0, 5);
+  var lookAt = vec3.fromValues(0, 0, 0);
+  var up = vec3.fromValues(0, 1, 0);
+  mat4.lookAt(view, eye, lookAt, up);
+  gl.uniformMatrix4fv(uniforms.uView, false, view);
+  var projection = mat4.create();
+  mat4.perspective(projection, deg2Rad(30),
+                   canvas.clientWidth / canvas.clientHeight, 1, 10);
+  gl.uniformMatrix4fv(uniforms.uProjection, false, projection);
+
   requestAnimationFrame(function anim (now) {
     var delta = now - previous; // ms
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -32,7 +44,7 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
       // rotate 360 deg in 10s
       // 360 deg / 10 s = 36 deg / s / 1000 ms / s = 0.0036 deg / ms
       mat4.rotateZ(location, location, deg2Rad(d * delta) * (i % 2 ? 1 : -1));
-      gl.uniformMatrix4fv(uniforms.uMVP, false, location);
+      gl.uniformMatrix4fv(uniforms.uModel, false, location);
       // UNSIGNED_BYTE because indices is an Uint8Array
       gl.drawElements(gl.LINE_LOOP, numIndices, gl.UNSIGNED_BYTE, 0);
     }
