@@ -1,0 +1,10 @@
+{
+  "name": "skreen",
+  "description": "dummy app",
+  "launch_path": "/index.html",
+  "role": "homescreen",
+  "type": "certified",
+  "permissions": {
+    "webapps-manage": {}
+  }
+}

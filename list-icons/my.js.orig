@@ -1,0 +1,106 @@
+//var mgmt = navigator.mozApps.mgmt;
+//mgmt.getAll().onsuccess = function (e) {
+  //var apps = e.target.result;
+  //console.log(apps);
+  //apps.forEach(function (app) {
+    //if (!app.manifest.icons) return;
+    //var largestIcon = Math.max.apply(null, Object.keys(app.manifest.icons));
+    //var imgSrc = app.installOrigin + app.manifest.icons[largestIcon];
+    //console.log(imgSrc);
+    //var img = new Image;
+    //img.width = img.height = '64';
+    //img.src = imgSrc;
+    //img.onclick = function (e) {
+      //console.log(e.target.src);
+      //app.launch();
+    //};
+    //document.body.appendChild(img);
+  //});
+//};
+
+function DOMLoad () {
+  var canvas = document.getElementById('canvas');
+  canvas.width = document.body.clientWidth;
+  canvas.height = document.body.clientHeight;
+  var gl = canvas.getContext('experimental-webgl');
+  var vertexShaderSrc = '\
+    attribute vec4 aPosition; \
+    attribute vec2 aTexCoord; \
+    varying vec2 vTexCoord; \
+    void main () { \
+      vTexCoord = aTexCoord; \
+      gl_Position = aPosition; \
+    }';
+  var fragmentShaderSrc = '\
+    precision mediump float; \
+    uniform sampler2D uSampler; \
+    varying vec2 vTexCoord; \
+    void main () { \
+      gl_FragColor = texture2D(uSampler, vTexCoord); \
+    }';
+  (new WebGLShaderLoader(gl)).loadFromStr(vertexShaderSrc,
+                                          fragmentShaderSrc,
+                                          programLoad);
+};
+
+function programLoad (errors, program, gl) {
+  if (errors.length > 0) return console.error.apply(console, errors);
+
+  gl.useProgram(program);
+  gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+  var uniforms = getUniforms(gl, program);
+  var attributes = getAttributes(gl, program);
+
+  var cube = new Float32Array([
+   -0.5,  0.5,
+   -0.5, -0.5,
+    0.5,  0.5,
+    0.5, -0.5
+  ]);
+  initBuffer(gl, cube, 2, attributes.aPosition);
+
+  var texCoords = new Float32Array([
+    0.0, 1.0,
+    0.0, 0.0,
+    1.0, 1.0,
+    1.0, 0.0
+  ]);
+  initBuffer(gl, texCoords, 2, attributes.aTexCoord);
+
+  var texture = createTexture(gl, uniforms.uSampler);
+  loadImages(gl, texture);
+};
+
+function createTexture (gl, uSampler) {
+  var texture = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.uniform1i(uSampler, 0);
+  return texture;
+};
+
+function loadImages (gl, texture) {
+  var img = new Image;
+  //img.onload = gl.drawArrays.bind(gl, gl.TRIANGLE_STRIP, 0, 4);
+  img.onload = sample.bind(null, gl, texture, img);
+  img.src = 'nyan_cat.gif';
+};
+
+function sample (gl, texture, img) {
+  gl.bindTexture(gl.TEXTURE_2D, texture); // still bound at this point
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+  draw(gl);
+};
+
+function draw (gl) {
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+};
+
+window.addEventListener('DOMContentLoaded', DOMLoad);
