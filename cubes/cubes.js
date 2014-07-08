@@ -13,13 +13,14 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
 
   var numIndices = addCube(gl, attributes);
 
+  var aspectRatio = canvas.clientWidth / canvas.clientHeight;
   var locations = [
-    transformMatrix(-0.5, 0.5),
-    transformMatrix(-0.5, 0.0),
-    transformMatrix(-0.5, -0.5),
-    transformMatrix(0.5, 0.5),
-    transformMatrix(0.5, 0.0),
-    transformMatrix(0.5, -0.5)
+    transformMatrix(-0.5 * aspectRatio, 0.5),
+    transformMatrix(-0.5 * aspectRatio, 0.0),
+    transformMatrix(-0.5 * aspectRatio, -0.5),
+    transformMatrix(0.5 * aspectRatio, 0.5),
+    transformMatrix(0.5 * aspectRatio, 0.0),
+    transformMatrix(0.5 * aspectRatio, -0.5)
   ];
   gl.uniform4f(uniforms.uColor, 1.0, 0.0, 0.0, 1.0);
   var d = degPerPeriod(10); // 10s to rotate 360 deg
@@ -33,7 +34,7 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
   gl.uniformMatrix4fv(uniforms.uView, false, view);
   var projection = mat4.create();
   mat4.perspective(projection, deg2Rad(30),
-                   canvas.clientWidth / canvas.clientHeight, 1, 10);
+                   aspectRatio, 1, 10);
   gl.uniformMatrix4fv(uniforms.uProjection, false, projection);
 
   requestAnimationFrame(function anim (now) {
