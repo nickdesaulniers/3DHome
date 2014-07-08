@@ -1,6 +1,8 @@
 var canvas = document.getElementById('canvas');
 var shaders = ['textured2.vert', 'textured.frag'];
-var images = [];
+var images = ['Star.png', 'Star.png', 'Star.png'];
+images = images.concat(images);
+images = images.concat(images);
 WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, _) {
   if (errors.length) return console.error.apply(console, errors);
 
@@ -11,31 +13,13 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
   gl.useProgram(program);
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
+  var aspectRatio = canvas.clientWidth / canvas.clientHeight;
   var numIndices = addCube(gl, attributes);
 
-  var aspectRatio = canvas.clientWidth / canvas.clientHeight;
-  var locations = [
-    transformMatrix(-0.5 * aspectRatio, 0.5),
-    transformMatrix(-0.5 * aspectRatio, 0.0),
-    transformMatrix(-0.5 * aspectRatio, -0.5),
-    transformMatrix(0.5 * aspectRatio, 0.5),
-    transformMatrix(0.5 * aspectRatio, 0.0),
-    transformMatrix(0.5 * aspectRatio, -0.5)
-  ];
-  gl.uniform4f(uniforms.uColor, 1.0, 0.0, 0.0, 1.0);
+  var locations = createTransformMatrices(images.length, aspectRatio);
   var d = degPerPeriod(10); // 10s to rotate 360 deg
   var previous = performance.now();
-
-  var view = mat4.create();
-  var eye = vec3.fromValues(0, 0, 5);
-  var lookAt = vec3.fromValues(0, 0, 0);
-  var up = vec3.fromValues(0, 1, 0);
-  mat4.lookAt(view, eye, lookAt, up);
-  gl.uniformMatrix4fv(uniforms.uView, false, view);
-  var projection = mat4.create();
-  mat4.perspective(projection, deg2Rad(30),
-                   aspectRatio, 1, 10);
-  gl.uniformMatrix4fv(uniforms.uProjection, false, projection);
+  setUniforms(gl, uniforms, aspectRatio);
 
   requestAnimationFrame(function anim (now) {
     var delta = now - previous; // ms
@@ -95,6 +79,20 @@ function addCube (gl, attributes) {
   return indices.length;
 };
 
+function createTransformMatrices (n, aspectRatio) {
+  var matrices = [];
+  var x, y;
+  var space = 2.0 / (Math.ceil(n / 2) + 1);
+  for (var i = 0; i < n; ++i) {
+    x = aspectRatio * (i % 2 ? 0.5 : -0.5);
+    y = 1 - Math.floor(i / 2) * space - space;
+    console.log(x, y);
+    matrices.push(transformMatrix(x, y));
+  }
+
+  return matrices;
+};
+
 function transformMatrix (x, y) {
   var matrix = mat4.create();
 
@@ -104,6 +102,19 @@ function transformMatrix (x, y) {
   mat4.rotateX(matrix, matrix, Math.PI / 4);
 
   return matrix;
+};
+
+function setUniforms (gl, uniforms, aspectRatio) {
+  gl.uniform4f(uniforms.uColor, 1.0, 0.0, 0.0, 1.0);
+  var view = mat4.create();
+  var eye = vec3.fromValues(0, 0, 5);
+  var lookAt = vec3.fromValues(0, 0, 0);
+  var up = vec3.fromValues(0, 1, 0);
+  mat4.lookAt(view, eye, lookAt, up);
+  gl.uniformMatrix4fv(uniforms.uView, false, view);
+  var projection = mat4.create();
+  mat4.perspective(projection, deg2Rad(30), aspectRatio, 1, 10);
+  gl.uniformMatrix4fv(uniforms.uProjection, false, projection);
 };
 
 function deg2Rad (deg) { return Math.PI * deg / 180; };
