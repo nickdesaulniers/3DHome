@@ -40,30 +40,52 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
 });
 
 function addCube (gl, attributes) {
-  // xyz triples for 1 vertex
+  // have to use 24 vertices, see:
+  // http://stackoverflow.com/questions/24662924/can-an-element-array-buffer-be-used-for-texture-mapping-the-same-texture-on-a-ev/
   var vertices = new Float32Array([
-    // x,    y,    z                              u, v
-     1.0,  1.0,  1.0, /* v0 right top front */    1.0, 1.0,
-    -1.0,  1.0,  1.0, /* v1 left top front */     0.0, 1.0,
-    -1.0, -1.0,  1.0, /* v2 left bottom front */  0.0, 0.0,
-     1.0, -1.0,  1.0, /* v3 right bottom front */ 1.0, 0.0,
-     // u's switch for back faces
-     1.0, -1.0, -1.0, /* v4 right bottom back */  0.0, 0.0,
-     1.0,  1.0, -1.0, /* v5 right top back */     0.0, 1.0,
-    -1.0,  1.0, -1.0, /* v6 left top back */      1.0, 1.0,
-    -1.0, -1.0, -1.0, /* v7 left bottom back */   1.0, 0.0
+    // x,    y,    z,   u,   v
+    // front face (z: +1)
+     1.0,  1.0,  1.0, 1.0, 1.0, // top right
+    -1.0,  1.0,  1.0, 0.0, 1.0, // top left
+    -1.0, -1.0,  1.0, 0.0, 0.0, // bottom left
+     1.0, -1.0,  1.0, 1.0, 0.0, // bottom right
+    // right face (x: +1)
+     1.0,  1.0, -1.0, 1.0, 1.0, // top right
+     1.0,  1.0,  1.0, 0.0, 1.0, // top left
+     1.0, -1.0,  1.0, 0.0, 0.0, // bottom left
+     1.0, -1.0, -1.0, 1.0, 0.0, // bottom right
+    // top face (y: +1)
+     1.0,  1.0, -1.0, 1.0, 1.0, // top right
+    -1.0,  1.0, -1.0, 0.0, 1.0, // top left
+    -1.0,  1.0,  1.0, 0.0, 0.0, // bottom left
+     1.0,  1.0,  1.0, 1.0, 0.0, // bottom right
+    // left face (x: -1)
+    -1.0,  1.0,  1.0, 1.0, 1.0, // top right
+    -1.0,  1.0, -1.0, 0.0, 1.0, // top left
+    -1.0, -1.0, -1.0, 0.0, 0.0, // bottom left
+    -1.0, -1.0,  1.0, 1.0, 0.0, // bottom right
+    // bottom face (y: -1)
+     1.0, -1.0,  1.0, 1.0, 1.0, // top right
+    -1.0, -1.0,  1.0, 0.0, 1.0, // top left
+    -1.0, -1.0, -1.0, 0.0, 0.0, // bottom left
+     1.0, -1.0, -1.0, 1.0, 0.0, // bottom right
+    // back face (x: -1)
+    -1.0,  1.0, -1.0, 1.0, 1.0, // top right
+     1.0,  1.0, -1.0, 0.0, 1.0, // top left
+     1.0, -1.0, -1.0, 0.0, 0.0, // bottom left
+    -1.0, -1.0, -1.0, 1.0, 0.0  // bottom right
   ]);
-  var bpe = vertices.BYTES_PER_ELEMENT;
+
   // the pairs of vertex triples
   // 3 vertices = 1 triangle
   // 2 triangles = 1 quad = 1 face
   var indices = new Uint8Array([
-    0, 1, 2,  0, 2, 3, // front
-    0, 3, 4,  0, 4, 5, // right
-    //0, 5, 6,  0, 6, 1, // top
-    1, 6, 7,  1, 7, 2, // left
-    //7, 4, 3,  7, 3, 2, // bottom
-    4, 7, 6,  4, 6, 5  // back
+     0,  1,  2,   0,  2,  3,
+     4,  5,  6,   4,  6,  7,
+     8,  9, 10,   8, 10, 11,
+    12, 13, 14,  12, 14, 15,
+    16, 17, 18,  16, 18, 19,
+    20, 21, 22,  20, 22, 23
   ]);
 
   var vertexBuffer = gl.createBuffer();
@@ -71,6 +93,7 @@ function addCube (gl, attributes) {
   gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
+  var bpe = vertices.BYTES_PER_ELEMENT;
   gl.vertexAttribPointer(attributes.aPosition, 3, gl.FLOAT, false, 5 * bpe, 0);
   gl.enableVertexAttribArray(attributes.aPosition);
 
