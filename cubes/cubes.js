@@ -1,8 +1,6 @@
 var canvas = document.getElementById('canvas');
 var shaders = ['textured3.vert', 'textured2.frag'];
-var images = ['r.jpg', 'r.jpg', 'r.jpg'];
-images = images.concat(images);
-images = images.concat(images);
+var images = ['r.jpg', 'Star.png', 'sicp.jpg'];
 WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, imgs) {
   if (errors.length) return console.error.apply(console, errors);
 
@@ -22,8 +20,16 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
   var previous = performance.now();
   setUniforms(gl, uniforms, aspectRatio, imgs);
 
+  //var maxTexUnits = gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS);
+  //var texUnitsNeeded = imgs.length;
+  //var texUnitsToInit = Math.min(maxTexUnits, texUnitsNeeded);
+  //console.log(maxTexUnits, texUnitsNeeded, texUnitsNeeded);
+  initializeTextures(gl, uniforms);
+
   requestAnimationFrame(function anim (now) {
     var delta = now - previous; // ms
+    previous = now;
+    requestAnimationFrame(anim);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     for (var i = 0; i < locations.length; ++i) {
       var location = locations[i];
@@ -31,11 +37,10 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
       // 360 deg / 10 s = 36 deg / s / 1000 ms / s = 0.0036 deg / ms
       mat4.rotateZ(location, location, deg2Rad(d * delta) * (i % 2 ? 1 : -1));
       gl.uniformMatrix4fv(uniforms.uModel, false, location);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgs[i]);
       // UNSIGNED_BYTE because indices is an Uint8Array
       gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_BYTE, 0);
     }
-    previous = now;
-    requestAnimationFrame(anim);
   });
 });
 
@@ -143,8 +148,9 @@ function setUniforms (gl, uniforms, aspectRatio, images) {
   var projection = mat4.create();
   mat4.perspective(projection, deg2Rad(30), aspectRatio, 1, 10);
   gl.uniformMatrix4fv(uniforms.uProjection, false, projection);
+};
 
-  // initialize textures
+function initializeTextures (gl, uniforms) {
   var texture = gl.createTexture();
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -153,9 +159,7 @@ function setUniforms (gl, uniforms, aspectRatio, images) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.uniform1i(uniforms.uSampler, 0);
-  // sample textures
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[0]);
 };
 
 function deg2Rad (deg) { return Math.PI * deg / 180; };
