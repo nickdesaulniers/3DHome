@@ -20,27 +20,27 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
   var previous = performance.now();
   setUniforms(gl, uniforms, aspectRatio, imgs);
 
-  //var maxTexUnits = gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS);
-  //var texUnitsNeeded = imgs.length;
-  //var texUnitsToInit = Math.min(maxTexUnits, texUnitsNeeded);
-  //console.log(maxTexUnits, texUnitsNeeded, texUnitsNeeded);
   initializeTextures(gl, uniforms);
 
-  requestAnimationFrame(function anim (now) {
-    var delta = now - previous; // ms
-    previous = now;
-    requestAnimationFrame(anim);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    for (var i = 0; i < locations.length; ++i) {
-      var location = locations[i];
-      // rotate 360 deg in 10s
-      // 360 deg / 10 s = 36 deg / s / 1000 ms / s = 0.0036 deg / ms
-      mat4.rotateZ(location, location, deg2Rad(d * delta) * (i % 2 ? 1 : -1));
-      gl.uniformMatrix4fv(uniforms.uModel, false, location);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgs[i]);
-      // UNSIGNED_BYTE because indices is an Uint8Array
-      gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_BYTE, 0);
-    }
+  loadIcons(function (icons) {
+    var images = icons ? icons : imgs;
+
+    requestAnimationFrame(function anim (now) {
+      var delta = now - previous; // ms
+      previous = now;
+      requestAnimationFrame(anim);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      for (var i = 0; i < locations.length; ++i) {
+        var location = locations[i];
+        // rotate 360 deg in 10s
+        // 360 deg / 10 s = 36 deg / s / 1000 ms / s = 0.0036 deg / ms
+        mat4.rotateZ(location, location, deg2Rad(d * delta) * (i % 2 ? 1 : -1));
+        gl.uniformMatrix4fv(uniforms.uModel, false, location);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[i]);
+        // UNSIGNED_BYTE because indices is an Uint8Array
+        gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_BYTE, 0);
+      }
+    });
   });
 });
 
@@ -160,6 +160,35 @@ function initializeTextures (gl, uniforms) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.uniform1i(uniforms.uSampler, 0);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+};
+
+function loadIcons (cb) {
+  if (!navigator.mozApps || !navigator.mozApps.mgmt) {
+    console.error('no mozApps.mgmt');
+    return cb(null);
+  }
+  navigator.mozApps.mgmt.getAll().onsuccess = function (e) {
+    var icons = [];
+    var apps = e.target.result;
+    var numToLoad = apps.length;
+    apps.forEach(function (app, i) {
+      // app manifest has no icons key
+      if (!app.manifest.icons) {
+        --numToLoad;
+        return;
+      }
+      var largestIcon = Math.max.apply(null, Object.keys(app.manifest.icons));
+      var imgSrc = app.installOrigin + app.manifest.icons[largestIcon];
+      var img = new Image;
+      function onLoadOrError (e) {
+        // Some icons will fail to load
+        e.type === 'error' ? --numToLoad : icons.push(img);
+        if (icons.length === numToLoad) cb(icons);
+      };
+      img.onload = img.onerror = onLoadOrError;
+      img.src = imgSrc;
+    });
+  };
 };
 
 function deg2Rad (deg) { return Math.PI * deg / 180; };
