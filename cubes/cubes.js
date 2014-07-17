@@ -15,7 +15,6 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
   var aspectRatio = canvas.clientWidth / canvas.clientHeight;
   var numIndices = addCube(gl, attributes);
 
-  var locations = createTransformMatrices(images.length, aspectRatio);
   var d = degPerPeriod(10); // 10s to rotate 360 deg
   var previous = performance.now();
   setUniforms(gl, uniforms, aspectRatio, imgs);
@@ -24,6 +23,7 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
 
   loadIcons(function (icons) {
     var images = icons ? icons : imgs;
+    var locations = createTransformMatrices(images.length, aspectRatio);
 
     requestAnimationFrame(function anim (now) {
       var delta = now - previous; // ms
@@ -34,7 +34,8 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
         var location = locations[i];
         // rotate 360 deg in 10s
         // 360 deg / 10 s = 36 deg / s / 1000 ms / s = 0.0036 deg / ms
-        mat4.rotateZ(location, location, deg2Rad(d * delta) * (i % 2 ? 1 : -1));
+        var s = (i % 4).toString(2);
+        mat4.rotateZ(location, location, deg2Rad(d * delta) * (s[0] ^ s[1] ? 1 : -1));
         gl.uniformMatrix4fv(uniforms.uModel, false, location);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[i]);
         // UNSIGNED_BYTE because indices is an Uint8Array
@@ -179,14 +180,30 @@ function loadIcons (cb) {
       }
       var largestIcon = Math.max.apply(null, Object.keys(app.manifest.icons));
       var imgSrc = app.installOrigin + app.manifest.icons[largestIcon];
-      var img = new Image;
-      function onLoadOrError (e) {
-        // Some icons will fail to load
-        e.type === 'error' ? --numToLoad : icons.push(img);
+
+      var xhr = new XMLHttpRequest({ mozSystem: true });
+      xhr.open('GET', imgSrc);
+      xhr.responseType = 'arraybuffer';
+      xhr.onload = function () {
+        if (xhr.status !== 200) {
+          --numToLoad;
+          if (icons.length === numToLoad) cb(icons);
+          return;
+        }
+        // TODO: bad check this
+        var blob = new Blob([xhr.response], { type: 'image/png' });
+        var url = URL.createObjectURL(blob);
+        var img = new Image;
+        img.src = url;
+        icons.push(img);
         if (icons.length === numToLoad) cb(icons);
       };
-      img.onload = img.onerror = onLoadOrError;
-      img.src = imgSrc;
+      try {
+        xhr.send();
+      } catch (e) {
+        --numToLoad;
+        if (icons.length === numToLoad) cb(icons);
+      }
     });
   };
 };
