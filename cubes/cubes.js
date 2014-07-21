@@ -54,8 +54,8 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
         // read pixels
         var pixels = new Uint8Array(4);
         gl.readPixels(clickX, clickY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-        if (pixels[3] === 0) {
-          var index = pixels[0] / 255 / step;
+        if (pixels[3] === clickAlpha) {
+          var index = Math.round(pixels[0] / 255 / step);
           // if started. save index
           // else launch
           if (started) {
@@ -87,17 +87,36 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
     var rect = e.target.getBoundingClientRect();
     clickX = e.clientX - rect.left | 0;
     clickY = e.target.clientHeight - e.clientY + rect.top | 0;
-    if (e.type === 'touchstart' || e.type === 'mousedown') {
+    if (e.type === 'mousedown') {
       started = true;
     } else {
       ended = true;
     }
   };
+  function setXYTouch (e) {
+    for (var i = 0; i < e.changedTouches.length; ++i) {
+      var touch = e.changedTouches[i];
+      if (touch.identifier === 0) {
+        var rect = e.target.getBoundingClientRect();
+        clickX = touch.clientX - rect.left | 0;
+        clickY = e.target.clientHeight - touch.clientY + rect.top | 0;
+        if (e.type === 'touchstart') {
+          started = true;
+        } else {
+          ended = true;
+        }
+      }
+    }
+  };
   // Did we start the touch on an app?
   // launch iff we ended on the same app
-  var hasTouch = !!('ontouchstart' in window);
-  canvas.addEventListener(hasTouch ? 'touchstart' : 'mousedown', setXY);
-  canvas.addEventListener(hasTouch ? 'touchend' : 'mouseup', setXY);
+  if (!!('ontouchstart' in window)) {
+    canvas.addEventListener('touchstart', setXYTouch);
+    canvas.addEventListener('touchend', setXYTouch);
+  } else {
+    canvas.addEventListener('mousedown', setXY);
+    canvas.addEventListener('mouseup', setXY);
+  }
 });
 
 function addCube (gl, attributes) {
