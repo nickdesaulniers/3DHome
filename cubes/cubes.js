@@ -1,5 +1,5 @@
 var canvas = document.getElementById('canvas');
-var shaders = ['textured3.vert', 'textured2.frag'];
+var shaders = ['textured3.vert', 'textured3.frag'];
 var images = ['r.jpg', 'Star.png', 'sicp.jpg'];
 WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, imgs) {
   if (errors.length) return console.error.apply(console, errors);
@@ -8,8 +8,12 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
   var attributes = programs[0].attributes;
   var uniforms = programs[0].uniforms;
 
+  var clearAlpha = 1.0;
+  var clickAlpha = 0.0;
+  if (clearAlpha === clickAlpha) throw new Error('pick handling would fail');
+
   gl.useProgram(program);
-  gl.clearColor(0.0, 0.0, 0.0, 1.0);
+  gl.clearColor(0.0, 0.0, 0.0, clearAlpha);
   gl.enable(gl.DEPTH_TEST);
 
   var aspectRatio = canvas.clientWidth / canvas.clientHeight;
@@ -21,6 +25,11 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
 
   initializeTextures(gl, uniforms);
 
+  var started = false;
+  var ended = false;
+  var savedIndex = NaN;
+  var clickX, clickY;
+
   loadIcons(function (icons) {
     var images = icons ? icons : imgs;
     var locations = createTransformMatrices(images.length, aspectRatio);
@@ -30,6 +39,36 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
       previous = now;
       requestAnimationFrame(anim);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      // pick detection
+      if (started || ended) {
+        gl.uniform1i(uniforms.uUseTexture, false);
+        var step = 1.0 / locations.length; // will fail eventually with too many apps
+        for (var j = 0; j < locations.length; ++j) {
+          var location = locations[j];
+          gl.uniformMatrix4fv(uniforms.uModel, false, location);
+          gl.uniform4f(uniforms.uColor, j * step, 0.0, 0.0, clickAlpha);
+          gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_BYTE, 0);
+        }
+        gl.uniform1i(uniforms.uUseTexture, true);
+
+        // read pixels
+        var pixels = new Uint8Array(4);
+        gl.readPixels(clickX, clickY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        if (pixels[3] === 0) {
+          var index = pixels[0] / 255 / step;
+          // if started. save index
+          // else launch
+          if (started) {
+            // (170/255)/(1/3) if step is 1/3
+            savedIndex = index;
+          } else if (index === savedIndex) {
+            console.log('launching apps[' + savedIndex + ']');
+            savedIndex = NaN;
+          }
+        }
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        started = ended = false;
+      }
       for (var i = 0; i < locations.length; ++i) {
         var location = locations[i];
         // rotate 360 deg in 10s
@@ -43,6 +82,22 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
       }
     });
   });
+
+  function setXY (e) {
+    var rect = e.target.getBoundingClientRect();
+    clickX = e.clientX - rect.left | 0;
+    clickY = e.target.clientHeight - e.clientY + rect.top | 0;
+    if (e.type === 'touchstart' || e.type === 'mousedown') {
+      started = true;
+    } else {
+      ended = true;
+    }
+  };
+  // Did we start the touch on an app?
+  // launch iff we ended on the same app
+  var hasTouch = !!('ontouchstart' in window);
+  canvas.addEventListener(hasTouch ? 'touchstart' : 'mousedown', setXY);
+  canvas.addEventListener(hasTouch ? 'touchend' : 'mouseup', setXY);
 });
 
 function addCube (gl, attributes) {
@@ -149,6 +204,7 @@ function setUniforms (gl, uniforms, aspectRatio, images) {
   var projection = mat4.create();
   mat4.perspective(projection, deg2Rad(30), aspectRatio, 1, 10);
   gl.uniformMatrix4fv(uniforms.uProjection, false, projection);
+  gl.uniform1i(uniforms.uUseTexture, true);
 };
 
 function initializeTextures (gl, uniforms) {
