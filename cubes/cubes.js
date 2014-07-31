@@ -21,9 +21,7 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
 
   var d = degPerPeriod(10); // 10s to rotate 360 deg
   var previous = performance.now();
-  setUniforms(gl, uniforms, aspectRatio, imgs);
-
-  initializeTextures(gl, uniforms);
+  setUniforms(gl, uniforms, aspectRatio);
 
   var started = false;
   var ended = false;
@@ -33,6 +31,7 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
   loadIcons(function (icons) {
     var images = icons ? icons : imgs;
     var locations = createTransformMatrices(images.length, aspectRatio);
+    var textures = createTextures(gl, uniforms, images);
 
     requestAnimationFrame(function anim (now) {
       var delta = now - previous; // ms
@@ -76,7 +75,7 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
         var s = (i % 4).toString(2);
         mat4.rotateZ(location, location, deg2Rad(d * delta) * (s[0] ^ s[1] ? 1 : -1));
         gl.uniformMatrix4fv(uniforms.uModel, false, location);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[i]);
+        gl.bindTexture(gl.TEXTURE_2D, textures[i]);
         // UNSIGNED_BYTE because indices is an Uint8Array
         gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_BYTE, 0);
       }
@@ -212,7 +211,7 @@ function transformMatrix (x, y) {
   return matrix;
 };
 
-function setUniforms (gl, uniforms, aspectRatio, images) {
+function setUniforms (gl, uniforms, aspectRatio) {
   gl.uniform4f(uniforms.uColor, 1.0, 0.0, 0.0, 1.0);
   var view = mat4.create();
   var eye = vec3.fromValues(0, 0, 5);
@@ -226,16 +225,23 @@ function setUniforms (gl, uniforms, aspectRatio, images) {
   gl.uniform1i(uniforms.uUseTexture, true);
 };
 
-function initializeTextures (gl, uniforms) {
-  var texture = gl.createTexture();
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.uniform1i(uniforms.uSampler, 0);
-  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+function createTextures (gl, uniforms, images) {
+  var textures = [];
+  for (var i = 0; i < images.length; ++i) {
+    var texture = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.uniform1i(uniforms.uSampler, 0);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[i]);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    textures.push(texture);
+  }
+  return textures;
 };
 
 function loadIcons (cb) {
