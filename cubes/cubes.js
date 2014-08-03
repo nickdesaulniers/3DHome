@@ -1,6 +1,11 @@
 var canvas = document.getElementById('canvas');
+canvas.width = document.body.clientWidth;
+canvas.height = document.body.clientHeight;
 var shaders = ['textured3.vert', 'textured3.frag'];
 var images = ['r.jpg', 'Star.png', 'sicp.jpg'];
+images = images.concat(images);
+images = images.concat(images);
+images = images.concat(images);
 WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, imgs) {
   if (errors.length) return console.error.apply(console, errors);
 
@@ -28,7 +33,7 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
   var savedIndex = NaN;
   var clickX, clickY;
 
-  loadIcons(function (icons) {
+  loadIcons(function (icons, apps) {
     var images = icons ? icons : imgs;
     var locations = createTransformMatrices(images.length, aspectRatio);
     var textures = createTextures(gl, uniforms, images);
@@ -54,14 +59,15 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
         var pixels = new Uint8Array(4);
         gl.readPixels(clickX, clickY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
         if (pixels[3] === clickAlpha) {
+          // (170/255)/(1/3) if step is 1/3
           var index = Math.round(pixels[0] / 255 / step);
           // if started. save index
           // else launch
           if (started) {
-            // (170/255)/(1/3) if step is 1/3
             savedIndex = index;
           } else if (index === savedIndex) {
             console.log('launching apps[' + savedIndex + ']');
+            apps[savedIndex].launch();
             savedIndex = NaN;
           }
         }
@@ -188,12 +194,18 @@ function addCube (gl, attributes) {
 };
 
 function createTransformMatrices (n, aspectRatio) {
+  var numCols = 4;
+  var spaceX = 2 / numCols;
+  var halfSpaceX = spaceX / 2;
+  var numRows = Math.ceil(n / numCols);
+  var spaceY = 2 / numRows;
+  var halfSpaceY = spaceY / 2;
   var matrices = [];
   var x, y;
   var space = 2.0 / (Math.ceil(n / 2) + 1);
   for (var i = 0; i < n; ++i) {
-    x = aspectRatio * (i % 2 ? 0.5 : -0.5);
-    y = 1 - Math.floor(i / 2) * space - space;
+    x = (halfSpaceX + spaceX * (i%4) - 1) * aspectRatio;
+    y = (halfSpaceY + spaceY * Math.floor(i / numCols) - 1) * -1; // * aspectRatio; // ?
     matrices.push(transformMatrix(x, y));
   }
 
@@ -252,6 +264,8 @@ function loadIcons (cb) {
   navigator.mozApps.mgmt.getAll().onsuccess = function (e) {
     var icons = [];
     var apps = e.target.result;
+    // need to remove bad app from apps
+    var appsToDisplay = [];
     var numToLoad = apps.length;
     apps.forEach(function (app, i) {
       // app manifest has no icons key
@@ -268,7 +282,7 @@ function loadIcons (cb) {
       xhr.onload = function () {
         if (xhr.status !== 200) {
           --numToLoad;
-          if (icons.length === numToLoad) cb(icons);
+          if (icons.length === numToLoad) cb(icons, appsToDisplay);
           return;
         }
         // TODO: bad check this
@@ -277,13 +291,14 @@ function loadIcons (cb) {
         var img = new Image;
         img.src = url;
         icons.push(img);
-        if (icons.length === numToLoad) cb(icons);
+        appsToDisplay.push(app);
+        if (icons.length === numToLoad) cb(icons, appsToDisplay);
       };
       try {
         xhr.send();
       } catch (e) {
         --numToLoad;
-        if (icons.length === numToLoad) cb(icons);
+        if (icons.length === numToLoad) cb(icons, appsToDisplay);
       }
     });
   };
@@ -291,4 +306,5 @@ function loadIcons (cb) {
 
 function deg2Rad (deg) { return Math.PI * deg / 180; };
 function degPerPeriod (period) { return 0.36 / period; };
+canvas.addEventListener('webglcontextlost', function () { location = location; });
 
