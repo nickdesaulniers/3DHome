@@ -35,6 +35,7 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
 
   loadIcons(function (icons, apps) {
     var images = icons ? icons : imgs;
+    var apps = apps ? apps : [];
     var locations = createTransformMatrices(images.length, aspectRatio);
     var textures = createTextures(gl, uniforms, images);
 
@@ -65,7 +66,7 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
           // else launch
           if (started) {
             savedIndex = index;
-          } else if (index === savedIndex) {
+          } else if (index === savedIndex && apps.length > savedIndex) {
             console.log('launching apps[' + savedIndex + ']');
             apps[savedIndex].launch();
             savedIndex = NaN;
