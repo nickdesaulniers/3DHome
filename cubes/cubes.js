@@ -25,11 +25,13 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
   var numIndices = addCube(gl, attributes);
 
   var d = degPerPeriod(10); // 10s to rotate 360 deg
+  var y = mat4.create();
   var previous = performance.now();
   setUniforms(gl, uniforms, aspectRatio);
 
   var started = false;
   var ended = false;
+  var moving = false;
   var savedIndex = NaN;
   var clickX, clickY;
 
@@ -66,6 +68,7 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
           // else launch
           if (started) {
             savedIndex = index;
+            moving = false;
           } else if (index === savedIndex && apps.length > savedIndex) {
             console.log('launching apps[' + savedIndex + ']');
             apps[savedIndex].launch();
@@ -75,12 +78,19 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         started = ended = false;
       }
+      if (moving) {
+        mat4.identity(y);
+        mat4.rotateY(y, y, deg2Rad(d * delta));
+      }
       for (var i = 0; i < locations.length; ++i) {
         var location = locations[i];
         // rotate 360 deg in 10s
         // 360 deg / 10 s = 36 deg / s / 1000 ms / s = 0.0036 deg / ms
         var s = (i % 4).toString(2);
         mat4.rotateZ(location, location, deg2Rad(d * delta) * (s[0] ^ s[1] ? 1 : -1));
+        if (moving) {
+          mat4.multiply(location, y, location);
+        }
         gl.uniformMatrix4fv(uniforms.uModel, false, location);
         gl.bindTexture(gl.TEXTURE_2D, textures[i]);
         // UNSIGNED_BYTE because indices is an Uint8Array
@@ -89,21 +99,22 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
     });
   });
 
+  var rect = canvas.getBoundingClientRect();
   function setXY (e) {
-    var rect = e.target.getBoundingClientRect();
     clickX = e.clientX - rect.left | 0;
     clickY = e.target.clientHeight - e.clientY + rect.top | 0;
     if (e.type === 'mousedown') {
       started = true;
-    } else {
+      moving = true;
+    } else if (e.type === 'mouseup') {
       ended = true;
+      moving = false;
     }
   };
   function setXYTouch (e) {
     for (var i = 0; i < e.changedTouches.length; ++i) {
       var touch = e.changedTouches[i];
       if (touch.identifier === 0) {
-        var rect = e.target.getBoundingClientRect();
         clickX = touch.clientX - rect.left | 0;
         clickY = e.target.clientHeight - touch.clientY + rect.top | 0;
         if (e.type === 'touchstart') {
