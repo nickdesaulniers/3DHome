@@ -25,7 +25,7 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
   var numIndices = addCube(gl, attributes);
 
   var d = degPerPeriod(10); // 10s to rotate 360 deg
-  var y = mat4.create();
+  var spin = mat4.create();
   var previous = performance.now();
   setUniforms(gl, uniforms, aspectRatio);
 
@@ -33,7 +33,7 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
   var ended = false;
   var moving = false;
   var savedIndex = NaN;
-  var clickX, clickY;
+  var clickX = 0, clickY = 0, clickX2 = 0, clickY2 = 0;
 
   loadIcons(function (icons, apps) {
     var images = icons ? icons : imgs;
@@ -79,8 +79,11 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
         started = ended = false;
       }
       if (moving) {
-        mat4.identity(y);
-        mat4.rotateY(y, y, deg2Rad(d * delta));
+        mat4.identity(spin);
+        mat4.rotateX(spin, spin, deg2Rad(-(clickY2 - clickY) /
+                                         canvas.clientHeight * d * delta * 4));
+        mat4.rotateY(spin, spin, deg2Rad((clickX2 - clickX) /
+                                         canvas.clientWidth * d * delta * 4));
       }
       for (var i = 0; i < locations.length; ++i) {
         var location = locations[i];
@@ -89,7 +92,7 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
         var s = (i % 4).toString(2);
         mat4.rotateZ(location, location, deg2Rad(d * delta) * (s[0] ^ s[1] ? 1 : -1));
         if (moving) {
-          mat4.multiply(location, y, location);
+          mat4.multiply(location, spin, location);
         }
         gl.uniformMatrix4fv(uniforms.uModel, false, location);
         gl.bindTexture(gl.TEXTURE_2D, textures[i]);
@@ -101,8 +104,8 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
 
   var rect = canvas.getBoundingClientRect();
   function setXY (e) {
-    clickX = e.clientX - rect.left | 0;
-    clickY = e.target.clientHeight - e.clientY + rect.top | 0;
+    clickX = clickX2 = e.clientX - rect.left | 0;
+    clickY = clickY2 = e.target.clientHeight - e.clientY + rect.top | 0;
     if (e.type === 'mousedown') {
       started = true;
       moving = true;
@@ -125,6 +128,22 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
       }
     }
   };
+  var timeSinceLastDrag = performance.now();
+  var diff = 0;
+  var now = 0;
+  function drag (e) {
+    if (moving) {
+      now = performance.now();
+      diff = now - timeSinceLastDrag;
+      timeSinceLastDrag = now;
+      if (timeSinceLastDrag > 200) {
+        clickX2 = e.clientX - rect.left | 0;
+        clickY2 = e.target.clientHeight - e.clientY + rect.top | 0;
+      }
+    }
+  };
+  function leave () { moving = false; };
+
   // Did we start the touch on an app?
   // launch iff we ended on the same app
   if (!!('ontouchstart' in window)) {
@@ -133,6 +152,8 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
   } else {
     canvas.addEventListener('mousedown', setXY);
     canvas.addEventListener('mouseup', setXY);
+    canvas.addEventListener('mousemove', drag);
+    canvas.addEventListener('mouseleave', leave);
   }
 });
 
