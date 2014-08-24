@@ -321,6 +321,7 @@ function loadIcons (cb) {
       // app manifest has no icons key
       if (!app.manifest.icons) {
         --numToLoad;
+        if (icons.length === numToLoad) cb(icons, appsToDisplay);
         return;
       }
       var largestIcon = Math.max.apply(null, Object.keys(app.manifest.icons));
@@ -329,6 +330,10 @@ function loadIcons (cb) {
       var xhr = new XMLHttpRequest({ mozSystem: true });
       xhr.open('GET', imgSrc);
       xhr.responseType = 'arraybuffer';
+      xhr.onerror = function (e) {
+        --numToLoad;
+        if (icons.length === numToLoad) cb(icons, appsToDisplay);
+      };
       xhr.onload = function () {
         if (xhr.status !== 200) {
           --numToLoad;
