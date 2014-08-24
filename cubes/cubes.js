@@ -107,8 +107,7 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
     clickX = clickX2 = e.clientX - rect.left | 0;
     clickY = clickY2 = e.target.clientHeight - e.clientY + rect.top | 0;
     if (e.type === 'mousedown') {
-      started = true;
-      moving = true;
+      started = moving = true;
     } else if (e.type === 'mouseup') {
       ended = true;
       moving = false;
@@ -118,12 +117,14 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
     for (var i = 0; i < e.changedTouches.length; ++i) {
       var touch = e.changedTouches[i];
       if (touch.identifier === 0) {
-        clickX = touch.clientX - rect.left | 0;
-        clickY = e.target.clientHeight - touch.clientY + rect.top | 0;
+        clickX = clickX2 = touch.clientX - rect.left | 0;
+        clickY = clickY2 = e.target.clientHeight - touch.clientY + rect.top | 0;
         if (e.type === 'touchstart') {
           started = true;
+           moving = true;
         } else {
           ended = true;
+          moving = false;
         }
       }
     }
@@ -142,6 +143,20 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
       }
     }
   };
+  function dragMove (e) {
+    if (moving) {
+      now = performance.now();
+      diff = now - timeSinceLastDrag;
+      timeSinceLastDrag = now;
+      for (var i = 0; i < e.changedTouches.length; ++i) {
+        var touch = e.changedTouches[i];
+        if (touch.identifier === 0) {
+          clickX2 = touch.clientX - rect.left | 0;
+          clickY2 = e.target.clientHeight - touch.clientY + rect.top | 0;
+        }
+      }
+    }
+  };
   function leave () { moving = false; };
 
   // Did we start the touch on an app?
@@ -149,6 +164,8 @@ WebGLShaderLoader.load(canvas, shaders, images, function (errors, gl, programs, 
   if (!!('ontouchstart' in window)) {
     canvas.addEventListener('touchstart', setXYTouch);
     canvas.addEventListener('touchend', setXYTouch);
+    canvas.addEventListener('touchmove', dragMove);
+    canvas.addEventListener('touchloeave', leave);
   } else {
     canvas.addEventListener('mousedown', setXY);
     canvas.addEventListener('mouseup', setXY);
