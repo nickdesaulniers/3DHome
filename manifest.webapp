@@ -1,0 +1,12 @@
+{
+  "name": "cubes",
+  "description": "3d homescreen",
+  "launch_path": "/cubes/cubes.html",
+  "type": "web",
+  "role": "homescreen",
+  "type": "certified",
+  "permissions": {
+    "webapps-manage": {},
+    "systemXHR": {}
+  }
+}
